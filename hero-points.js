@@ -9,15 +9,6 @@ Hooks.on("getSceneControlButtons", controls => {
 		return;
 	}
 
-	// 	// Get the party members from the Pathfinder 2e system
-	// const party = game.actors.party?.members;
-
-	// if (!party || party.length === 0) {
-	// 	ui.notifications.warn("No party members found in the Pathfinder 2e party!");
-	// 	console.error("No party members found in the Pathfinder 2e party!");
-	// 	return;
-	// }
-
 	tokenControls.tools.push({
 		name: "heroPoints",
 		title: "Assign Hero Points", // Tooltip text
@@ -26,14 +17,14 @@ Hooks.on("getSceneControlButtons", controls => {
 		button: true
 	});
 
-	// Button for listing party members in the chat
-	tokenControls.tools.push({
-		name: "listPartyMembers",
-		title: "List Party Members", // Tooltip text
-		icon: "fas fa-users", // Font Awesome group/users icon
-		onClick: () => listPartyMembersInChat(), // Lists party members in the chat
-		button: true
-	});
+	// // Button for listing party members in the chat
+	// tokenControls.tools.push({
+	// 	name: "listPartyMembers",
+	// 	title: "List Party Members", // Tooltip text
+	// 	icon: "fas fa-users", // Font Awesome group/users icon
+	// 	onClick: () => listPartyMembersInChat(), // Lists party members in the chat
+	// 	button: true
+	// });
 
 	console.log("Hero Points and List Party Members buttons added!");
 });
@@ -89,11 +80,6 @@ function updateHeroPoints(amount, party, type) {
 
 		console.log(member.prototypeToken.name);
 		let heropoints = member.system.resources.heroPoints.value;
-
-		// if (heropoints >= member.system.resources.heroPoints.max) {
-		// 	ui.notifications.info(`${member.prototypeToken.name || 'NAME'} is already at the max hero points`);
-		// 	heropoints = 0;
-		// }
 		
 		if (type === 'add') {
 			if (heropoints >= member.system.resources.heroPoints.max) {
@@ -149,12 +135,14 @@ function updateHeroPoints(amount, party, type) {
 		else {
 			ui.notifications.error(`something went wrong!`);
 		}
-
-		// return;
 	}
 }
 
 
+
+
+
+// only for testing, not included in functionality, but ill leave it here anyways lol
 function listPartyMembersInChat() {
 	// Get the party members from the Pathfinder 2e system
 	const partyMembers = game.actors.party?.members;
@@ -212,6 +200,5 @@ function listPartyMembersInChat() {
 
 // Call the function immediately so you can run it directly in the console
 // updateHeroPoints(1, game.actors.party?.members, 'add');
-
-openHeroPointsDialog()
-// listPartyMembersInChat();
+// openHeroPointsDialog()
+// // listPartyMembersInChat();
