@@ -1,0 +1,19 @@
+{
+  "name": "greenbottles-toolbelt__hero-points",
+  "title": "Greenbottle's Hero Points",
+  "description": "A Foundry VTT module to dynamically manage Hero Points for Pathfinder 2e party members.",
+  "version": "1.0.1",
+  "authors": [
+    {
+      "name": "Jeremy",
+      "email": "your-email@example.com",
+      "url": "https://github.com/Ayabara1013"
+    }
+  ],
+  "esmodules": ["hero-points.js"],
+  "minimumCoreVersion": "10",
+  "compatibleCoreVersion": "11",
+  "system": ["pf2e"],
+  "manifest": "https://raw.githubusercontent.com/Ayabara1013/greenbottles-toolbelt/main/module.json",
+  "download": "https://github.com/Ayabara1013/greenbottles-toolbelt__hero-points/archive/refs/tags/v1.0.1.zip"
+}
