@@ -12,7 +12,7 @@
   ],
   "esmodules": ["hero-points.js"],
   "minimumCoreVersion": "10",
-  "compatibleCoreVersion": "11",
+  "compatibleCoreVersion": "12",
   "system": ["pf2e"],
   "manifest": "https://raw.githubusercontent.com/Ayabara1013/greenbottles-toolbelt/main/module.json",
   "download": "https://github.com/Ayabara1013/greenbottles-toolbelt__hero-points/archive/refs/tags/v1.0.1.zip"
