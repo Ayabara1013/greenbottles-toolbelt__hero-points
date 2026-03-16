@@ -1,204 +1,225 @@
+/**
+ * hero-points.js — Greenbottle's Hero Points
+ *
+ * Adds a "Assign Hero Points" button to the GM's token controls toolbar.
+ * Clicking it opens a dialog with four bulk operations for the whole party:
+ *   - Add 1      → increment every member by 1 (stops at max)
+ *   - Set all to 2 → set everyone to exactly 2
+ *   - Top up     → bring anyone below 2 up to 2 (skips those already at 2+)
+ *   - Clear      → set everyone to 0
+ *
+ * Only GMs can see the button. Uses the PF2e party system to get party members.
+ * Hero points live at: actor.system.resources.heroPoints.value / .max
+ */
 
-
+// ── Token Controls Button ────────────────────────────────────────────────────
+// getSceneControlButtons fires when Foundry builds the left-side toolbar.
+// We hook in here to inject our button into the "Token" section.
 Hooks.on("getSceneControlButtons", controls => {
-	if (!game.user.isGM) return; // Only GMs can see and use this button
+  if (!game.user.isGM) return; // Only GMs can see and use this button
 
-	const tokenControls = controls.find(control => control.name === "token"); // Locate the Token Controls section
-	if (!tokenControls) {
-		console.error("Token controls not found!");
-		return;
-	}
+  const tokenControls = controls.find(control => control.name === "token"); // Locate the Token Controls section
+  if (!tokenControls) {
+    console.error("Token controls not found!");
+    return;
+  }
 
-	tokenControls.tools.push({
-		name: "heroPoints",
-		title: "Assign Hero Points", // Tooltip text
-		icon: "fas fa-star", // Font Awesome star icon
-		onClick: () => openHeroPointsDialog(),
-		button: true
-	});
+  tokenControls.tools.push({
+    name: "heroPoints",
+    title: "Assign Hero Points", // Tooltip text shown on hover
+    icon: "fas fa-star",         // Font Awesome star icon
+    onClick: () => openHeroPointsDialog(),
+    button: true
+  });
 
-	// // Button for listing party members in the chat
-	// tokenControls.tools.push({
-	// 	name: "listPartyMembers",
-	// 	title: "List Party Members", // Tooltip text
-	// 	icon: "fas fa-users", // Font Awesome group/users icon
-	// 	onClick: () => listPartyMembersInChat(), // Lists party members in the chat
-	// 	button: true
-	// });
+  // Commented-out button: lists party members in chat (kept for reference/testing)
+  // tokenControls.tools.push({
+  //   name: "listPartyMembers",
+  //   title: "List Party Members",
+  //   icon: "fas fa-users",
+  //   onClick: () => listPartyMembersInChat(),
+  //   button: true
+  // });
 
-	console.log("Hero Points and List Party Members buttons added!");
+  console.log("Hero Points button added to token controls!");
 });
 
 
+// ── Dialog ───────────────────────────────────────────────────────────────────
 
-
-// Function to open the dialog box
+/**
+ * Opens the Hero Points dialog with four bulk action buttons.
+ * Reads the current PF2e party from game.actors.party.
+ */
 function openHeroPointsDialog() {
-	// Get the party members from the Pathfinder 2e system
-	const party = game.actors.party?.members;
+  const party = game.actors.party?.members;
 
-	if (!party || party.length === 0) {
-		ui.notifications.warn("No party members found in the Pathfinder 2e party!");
-		console.error("No party members found in the Pathfinder 2e party!");
-		return;
-	}
+  if (!party || party.length === 0) {
+    ui.notifications.warn("No party members found in the Pathfinder 2e party!");
+    console.error("No party members found in the Pathfinder 2e party!");
+    return;
+  }
 
-	new Dialog({
-		title: "Assign Hero Points",
-		content: `<p>How many hero points should party members receive?</p>`,
-		buttons: {
-			one: {
-				label: "add 1",
-				callback: () => updateHeroPoints(1, party, 'add') // Assign 1 hero point to party members
-			},
-			two: {
-				label: "set all to 2",
-				callback: () => updateHeroPoints(2, party, 'set') // Assign 2 hero points to party members
-			},
-			three: {
-				label: "top up",
-				callback: () => updateHeroPoints(2, party, 'top-up') // Assign 3 hero points to party members
-			},
-			four: {
-				label: "clear",
-				callback: () => updateHeroPoints(0, party, 'set') // Assign 3 hero points to party members
-			}
-		},
-		default: "two" // Default button selected
-	}).render(true);
+  new Dialog({
+    title: "Assign Hero Points",
+    content: `<p>How many hero points should party members receive?</p>`,
+    buttons: {
+      one: {
+        label: "add 1",
+        callback: () => updateHeroPoints(1, party, 'add')      // Add 1 to each member (respects max)
+      },
+      two: {
+        label: "set all to 2",
+        callback: () => updateHeroPoints(2, party, 'set')      // Set everyone to exactly 2
+      },
+      three: {
+        label: "top up",
+        callback: () => updateHeroPoints(2, party, 'top-up')   // Bring anyone below 2 up to 2
+      },
+      four: {
+        label: "clear",
+        callback: () => updateHeroPoints(0, party, 'set')      // Clear everyone to 0
+      }
+    },
+    default: "two" // "set all to 2" is pre-selected
+  }).render(true);
 
-	console.log("Hero Points dialog opened!");
+  console.log("Hero Points dialog opened!");
 }
 
 
+// ── Update Logic ─────────────────────────────────────────────────────────────
 
-// Function to assign Hero Points to party members only
+/**
+ * Updates hero points for every member of the party according to the chosen mode.
+ *
+ * @param {number} amount  The target or delta value depending on mode.
+ * @param {Actor[]} party  Array of party member Actors from game.actors.party.
+ * @param {'add'|'set'|'top-up'} type  How to apply the amount:
+ *   - 'add'    → add `amount` to current value, stop if already at max
+ *   - 'set'    → set everyone to exactly `amount` (also used for clear with amount=0)
+ *   - 'top-up' → only update members whose current value is below `amount`
+ */
 function updateHeroPoints(amount, party, type) {
+  for (const member of party) {
+    console.log(member.prototypeToken.name);
+    let heropoints = member.system.resources.heroPoints.value;
 
+    if (type === 'add') {
+      // Skip members already at max — can't go over the cap.
+      if (heropoints >= member.system.resources.heroPoints.max) {
+        ui.notifications.info(`${member.prototypeToken.name || 'NAME'} is already at the max hero points`);
+        continue; // Move on to the next party member
+      }
 
-	for (const member of party) {
+      const newAmount = heropoints += amount;
 
-		console.log(member.prototypeToken.name);
-		let heropoints = member.system.resources.heroPoints.value;
-		
-		if (type === 'add') {
-			if (heropoints >= member.system.resources.heroPoints.max) {
-				ui.notifications.info(`${member.prototypeToken.name || 'NAME'} is already at the max hero points`);
-				heropoints = 0;
-				continue;
-			}
+      member.update({
+        'system.resources.heroPoints.value': newAmount
+      }).then(() => {
+        ui.notifications.info(`${member.prototypeToken.name}'s Hero Points have been updated to ${newAmount}`);
+      }).catch(error => {
+        console.error(`Failed to update Hero Points for ${member.prototypeToken.name}:`, error);
+        ui.notifications.error(`Failed to update Hero Points for ${member.prototypeToken.name}`);
+      });
+    }
 
-			const newAmount = heropoints += amount;
-
-			member.update({
-				'system.resources.heroPoints.value': newAmount
-			}).then(() => {
-					ui.notifications.info(`${member.prototypeToken.name}'s Hero Points have been updated to ${newAmount}`);
-			}).catch(error => {
-					console.error(`Failed to update Hero Points for ${member.prototypeToken.name}:`, error);
-					ui.notifications.error(`Failed to update Hero Points for ${member.prototypeToken.name}`);
-			});
-		}	
-
-		else if (type === 'set') {
-			member.update({
-				'system.resources.heroPoints.value': amount
-			}).then(() => {
-					ui.notifications.info(`${member.prototypeToken.name}'s Hero Points have been updated to ${amount}`);
-			}).catch(error => {
-					console.error(`Failed to update Hero Points for ${member.prototypeToken.name}:`, error);
-					ui.notifications.error(`Failed to update Hero Points for ${member.prototypeToken.name}`);
-			});
-		}
-			
-		else if (type === 'top-up') {
-			// Logic to check if an update is needed
-			if (heropoints >= amount) {
-        ui.notifications.info(`${member.prototypeToken.name} already has enough Hero Points!`);
-				continue; // Skip to the next member if no update is needed
-			}	
-
-			// Prepare the update object
-			const updateData = {
+    else if (type === 'set') {
+      // Directly overwrite with the given amount (used by both "set all to 2" and "clear").
+      member.update({
         'system.resources.heroPoints.value': amount
-			};
-			
-			member.update(updateData)
-				.then(() => {
-					ui.notifications.info(`${member.prototypeToken.name}'s Hero Points have been updated to ${amount}`);
-				}).catch(error => {
-						console.error(`Failed to update Hero Points for ${member.prototypeToken.name}:`, error);
-						ui.notifications.error(`Failed to update Hero Points for ${member.prototypeToken.name}`);
-				});
-		}
-			
-		else {
-			ui.notifications.error(`something went wrong!`);
-		}
-	}
+      }).then(() => {
+        ui.notifications.info(`${member.prototypeToken.name}'s Hero Points have been updated to ${amount}`);
+      }).catch(error => {
+        console.error(`Failed to update Hero Points for ${member.prototypeToken.name}:`, error);
+        ui.notifications.error(`Failed to update Hero Points for ${member.prototypeToken.name}`);
+      });
+    }
+
+    else if (type === 'top-up') {
+      // Skip members who already have enough — only boost those below the target.
+      if (heropoints >= amount) {
+        ui.notifications.info(`${member.prototypeToken.name} already has enough Hero Points!`);
+        continue;
+      }
+
+      const updateData = {
+        'system.resources.heroPoints.value': amount
+      };
+
+      member.update(updateData)
+        .then(() => {
+          ui.notifications.info(`${member.prototypeToken.name}'s Hero Points have been updated to ${amount}`);
+        }).catch(error => {
+          console.error(`Failed to update Hero Points for ${member.prototypeToken.name}:`, error);
+          ui.notifications.error(`Failed to update Hero Points for ${member.prototypeToken.name}`);
+        });
+    }
+
+    else {
+      ui.notifications.error(`something went wrong!`);
+    }
+  }
 }
 
 
+// ── Debug / Testing Utilities ─────────────────────────────────────────────────
 
-
-
-// only for testing, not included in functionality, but ill leave it here anyways lol
+/**
+ * Prints a table of party members (name, level, class, hero points) to chat.
+ * Not wired into any button — left here for manual testing from the console.
+ */
 function listPartyMembersInChat() {
-	// Get the party members from the Pathfinder 2e system
-	const partyMembers = game.actors.party?.members;
+  const partyMembers = game.actors.party?.members;
 
-	if (!partyMembers || partyMembers.length === 0) {
-		ui.notifications.warn("No party members found in the Pathfinder 2e party!");
-		console.error("No party members found in the Pathfinder 2e party!");
-		return;
-	}
+  if (!partyMembers || partyMembers.length === 0) {
+    ui.notifications.warn("No party members found in the Pathfinder 2e party!");
+    console.error("No party members found in the Pathfinder 2e party!");
+    return;
+  }
 
-	// Build the HTML message to display in chat
-	let messageContent = `
-		<h2>Party Members</h2>
-		<table style="width: 100%; text-align: left; border-collapse: collapse;">
-			<thead>
-				<tr>
-					<th style="border-bottom: 1px solid #ddd;">Name</th>
-					<th style="border-bottom: 1px solid #ddd;">Level</th>
-					<th style="border-bottom: 1px solid #ddd;">Class</th>
-					<th style="border-bottom: 1px solid #ddd;">Hero Points</th>
-				</tr>
-			</thead>
-			<tbody>
-	`;
+  let messageContent = `
+    <h2>Party Members</h2>
+    <table style="width: 100%; text-align: left; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="border-bottom: 1px solid #ddd;">Name</th>
+          <th style="border-bottom: 1px solid #ddd;">Level</th>
+          <th style="border-bottom: 1px solid #ddd;">Class</th>
+          <th style="border-bottom: 1px solid #ddd;">Hero Points</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
 
-	for (const actor of partyMembers) {
-			// Access actor data for level and class
-		const level = actor.system?.details?.level?.value || "N/A";	
+  for (const actor of partyMembers) {
+    const level = actor.system?.details?.level?.value || "N/A";
+    const className = actor.items.find(item => item.type === 'class')?.name || 'N/A';
 
-		const className = actor.items.find(item => item.type === 'class')?.name || 'N/A';
+    messageContent += `
+      <tr>
+        <td>${actor.prototypeToken.name}</td>
+        <td>${level}</td>
+        <td>${className}</td>
+        <td>${actor.system.resources.heroPoints.value}/${actor.system.resources.heroPoints.max}</td>
+      </tr>
+    `;
+  }
 
-			messageContent += `
-				<tr>
-					<td>${actor.prototypeToken.name}</td>
-					<td>${level}</td>
-					<td>${className}</td>
-					<td>${actor.system.resources.heroPoints.value}/${actor.system.resources.heroPoints.max}</td>
-				</tr>
-			`;
-	}
+  messageContent += `
+      </tbody>
+    </table>
+  `;
 
-	messageContent += `
-			</tbody>
-		</table>
-	`;
+  ChatMessage.create({
+    content: messageContent,
+    speaker: { alias: "Party Tool" }
+  });
 
-	// Send the message to chat
-	ChatMessage.create({
-			content: messageContent,
-			speaker: { alias: "Party Tool" }
-	});
-
-	console.log("Party Members listed in chat!");
+  console.log("Party Members listed in chat!");
 }
 
-// Call the function immediately so you can run it directly in the console
+// Quick console shortcuts for manual testing (uncomment to run directly):
 // updateHeroPoints(1, game.actors.party?.members, 'add');
-// openHeroPointsDialog()
-// // listPartyMembersInChat();
+// openHeroPointsDialog();
+// listPartyMembersInChat();
